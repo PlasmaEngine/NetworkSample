@@ -1,0 +1,8 @@
+﻿#pl-version 1
+
+Build/*
+AssetCache/
+
+# FMOD specific
+.cache/
+.user/

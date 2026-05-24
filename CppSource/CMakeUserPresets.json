@@ -1,0 +1,24 @@
+{
+  "configurePresets" : [ {
+      "name" : "plEngine",
+      "displayName" : "Build the plEngine Plugin",
+      "architecture" : "x64",
+      "cacheVariables" : {
+        "PL_BUILDTYPE_ONLY" : "Dev",
+        "CMAKE_BUILD_TYPE" : "Dev",
+        "PL_SDK_DIR" : "E:/PlasmaTech/PlasmaEngine2/"
+      },
+      "binaryDir" : "E:/PlasmaTech/Temp/T1/FirstPersonTemplate/CppSource/Build/Vs2022x64",
+      "generator" : "Visual Studio 17 2022"
+    } ],
+  "version" : 3,
+  "buildPresets" : [ {
+      "configurePreset" : "plEngine",
+      "name" : "plEngine"
+    } ],
+  "cmakeMinimumRequired" : {
+    "major" : 3,
+    "minor" : 21,
+    "patch" : 0
+  }
+}

@@ -1,0 +1,15 @@
+# The plEditor may modify this file to add build configuration options.
+
+
+# Link against selected engine plugins
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  AiPlugin
+  AngelScriptPlugin
+  GameComponentsPlugin
+  JoltPlugin
+  NetworkPlugin
+  ParticlePlugin
+  RmlUiPlugin
+  VisualScriptPlugin
+  WaterPlugin
+)

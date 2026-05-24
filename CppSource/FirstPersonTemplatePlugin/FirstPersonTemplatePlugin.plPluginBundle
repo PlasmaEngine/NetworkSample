@@ -1,0 +1,15 @@
+PluginInfo
+{
+	bool %Mandatory{false}
+	string %DisplayName{"FirstPersonTemplate"}
+	string %MinEngineVersion{"0.4.0"}
+	string %MaxEngineVersion{"0.4.0"}
+	string %Description{"C++ code for the FirstPersonTemplate project."}
+	string %EditorPlugins{}
+	string %EditorEnginePlugins{}
+	string %RuntimePlugins{"FirstPersonTemplatePlugin"}
+	string %PackageDependencies{}
+	string %RequiredPlugins{}
+	string %ExclusiveFeatures{"ProjectPlugin"}
+	string %EnabledInTemplates{}
+}
