@@ -56,6 +56,8 @@ FirstPersonPlayer::~FirstPersonPlayer()
 void FirstPersonPlayer::OnSimulationStarted()
 {
   plNetworkedTransformComponent::OnSimulationStarted();
+  SetNetworkRole(plNetworkRoleEnum::Client);
+  SetChannelType(plNetworkChannelTypeEnum::UnreliableOrdered);
 
   if (!GetOwner()->TryGetComponentOfBaseType(m_pInputComponent))
   {
@@ -95,6 +97,40 @@ void FirstPersonPlayer::DeserializeComponent(plWorldReader& stream)
 
 }
 
+void FirstPersonPlayer::NetworkSerialize(plNetworkMessage& msg)
+{
+  msg.WriteUInt32(m_uiInputSequence);
+  msg.WriteFloat(m_ClientInputToSend.m_fMoveForwards);
+  msg.WriteFloat(m_ClientInputToSend.m_fMoveBackwards);
+  msg.WriteFloat(m_ClientInputToSend.m_fStrafeLeft);
+  msg.WriteFloat(m_ClientInputToSend.m_fStrafeRight);
+  msg.WriteFloat(m_ClientInputToSend.m_fRotateLeft);
+  msg.WriteFloat(m_ClientInputToSend.m_fRotateRight);
+  msg.WriteFloat(m_ClientInputToSend.m_fLookDelta);
+  msg.WriteUInt8(m_ClientInputToSend.m_bJump ? 1 : 0);
+  msg.WriteUInt8(m_ClientInputToSend.m_bCrouch ? 1 : 0);
+  msg.WriteUInt8(m_ClientInputToSend.m_bRun ? 1 : 0);
+}
+
+void FirstPersonPlayer::NetworkDeserialize(plNetworkMessage& msg)
+{
+  if (!m_pNetworkModule || (!m_pNetworkModule->IsHost() && !m_pNetworkModule->IsServer()))
+    return;
+
+  msg.ReadUInt32(); // input sequence
+  m_LastServerInput.m_fMoveForwards = msg.ReadFloat();
+  m_LastServerInput.m_fMoveBackwards = msg.ReadFloat();
+  m_LastServerInput.m_fStrafeLeft = msg.ReadFloat();
+  m_LastServerInput.m_fStrafeRight = msg.ReadFloat();
+  m_LastServerInput.m_fRotateLeft = msg.ReadFloat();
+  m_LastServerInput.m_fRotateRight = msg.ReadFloat();
+  m_LastServerInput.m_fLookDelta = msg.ReadFloat();
+  m_LastServerInput.m_bJump = msg.ReadUInt8() != 0;
+  m_LastServerInput.m_bCrouch = msg.ReadUInt8() != 0;
+  m_LastServerInput.m_bRun = msg.ReadUInt8() != 0;
+  m_LastServerInputTime = plTime::Now();
+}
+
 void FirstPersonPlayer::Update()
 {
   RefreshOwnershipState();
@@ -112,6 +148,10 @@ void FirstPersonPlayer::Update()
     if (m_bIsLocalOwner)
     {
       ReadLocalInput(m_LastServerInput);
+    }
+    else if (m_LastServerInputTime.GetSeconds() > 0.0 && (plTime::Now() - m_LastServerInputTime).GetSeconds() > 0.25)
+    {
+      m_LastServerInput = InputState();
     }
 
     ApplyInput(m_LastServerInput);
@@ -137,6 +177,21 @@ void FirstPersonPlayer::Update()
 void FirstPersonPlayer::OnAuthorityDetermined(bool bIsLocalAuthority)
 {
   m_bIsLocalOwner = bIsLocalAuthority;
+}
+
+void FirstPersonPlayer::ApplyRemotePosition(const plVec3& vPosition)
+{
+  if (m_pCharacterControllerComponent)
+  {
+    m_pCharacterControllerComponent->TeleportToPosition(vPosition);
+  }
+
+  GetOwner()->SetGlobalPosition(vPosition);
+}
+
+void FirstPersonPlayer::ApplyRemoteRotation(const plQuat& qRotation)
+{
+  GetOwner()->SetGlobalRotation(qRotation);
 }
 
 void FirstPersonPlayer::ReadLocalInput(InputState& out_input) const
@@ -195,22 +250,9 @@ void FirstPersonPlayer::SendInputToServer(const InputState& input)
     return;
   m_LastInputSendTime = now;
 
-  plNetworkMessage msg = m_pNetworkModule->GetPeer()->BeginSendMessage();
-  msg.WriteUInt8(FIRST_PERSON_PLAYER_INPUT_MESSAGE_ID);
-  msg.WriteUInt32(GetNetID());
-  msg.WriteUInt32(++m_uiInputSequence);
-  msg.WriteFloat(input.m_fMoveForwards);
-  msg.WriteFloat(input.m_fMoveBackwards);
-  msg.WriteFloat(input.m_fStrafeLeft);
-  msg.WriteFloat(input.m_fStrafeRight);
-  msg.WriteFloat(input.m_fRotateLeft);
-  msg.WriteFloat(input.m_fRotateRight);
-  msg.WriteFloat(input.m_fLookDelta);
-  msg.WriteUInt8(input.m_bJump ? 1 : 0);
-  msg.WriteUInt8(input.m_bCrouch ? 1 : 0);
-  msg.WriteUInt8(input.m_bRun ? 1 : 0);
-  msg.SetChannelType(plNetworkChannelTypeEnum::UnreliableOrdered);
-  m_pNetworkModule->GetPeer()->SendMessages(msg);
+  m_ClientInputToSend = input;
+  ++m_uiInputSequence;
+  MarkDirty();
 }
 
 void FirstPersonPlayer::OnNetworkUserMessage(plMsgNetworkUserMessage& msg)
@@ -247,6 +289,7 @@ void FirstPersonPlayer::OnNetworkUserMessage(plMsgNetworkUserMessage& msg)
   m_LastServerInput.m_bJump = netMsg.ReadUInt8() != 0;
   m_LastServerInput.m_bCrouch = netMsg.ReadUInt8() != 0;
   m_LastServerInput.m_bRun = netMsg.ReadUInt8() != 0;
+  m_LastServerInputTime = plTime::Now();
   netMsg.m_uiPosition = uiOriginalPosition;
 }
 

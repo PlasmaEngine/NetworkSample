@@ -23,11 +23,15 @@ public:
 
     virtual void SerializeComponent(plWorldWriter& stream) const override;
     virtual void DeserializeComponent(plWorldReader& stream) override;
+    virtual void NetworkSerialize(plNetworkMessage& msg) override;
+    virtual void NetworkDeserialize(plNetworkMessage& msg) override;
 
 protected:
     virtual void OnSimulationStarted() override;
     virtual void Update() override;
     virtual void OnAuthorityDetermined(bool bIsLocalAuthority) override;
+    virtual void ApplyRemotePosition(const plVec3& vPosition) override;
+    virtual void ApplyRemoteRotation(const plQuat& qRotation) override;
 
 private:
     struct InputState
@@ -59,7 +63,9 @@ private:
     plBlackboardComponent* m_pBlackboardComponent;
 
     InputState m_LastServerInput;
+    InputState m_ClientInputToSend;
     plTime m_LastInputSendTime;
+    plTime m_LastServerInputTime;
     plUInt32 m_uiInputSequence = 0;
     float m_fInputSendRate = 30.0f;
     bool m_bIsLocalOwner = false;
