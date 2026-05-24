@@ -148,14 +148,14 @@ void FirstPersonPlayer::Update()
     if (m_bIsLocalOwner)
     {
       ReadLocalInput(m_LastServerInput);
+      ApplyInput(m_LastServerInput);
+      UpdateAsAuthority();
     }
-    else if (m_LastServerInputTime.GetSeconds() > 0.0 && (plTime::Now() - m_LastServerInputTime).GetSeconds() > 0.25)
+    else
     {
-      m_LastServerInput = InputState();
+      // Client-owned player: render the owner's authoritative transform, do not simulate from input.
+      UpdateAsRemote();
     }
-
-    ApplyInput(m_LastServerInput);
-    UpdateAsAuthority();
     return;
   }
 
@@ -167,6 +167,7 @@ void FirstPersonPlayer::Update()
       ReadLocalInput(input);
       ApplyInput(input);
       SendInputToServer(input);
+      UpdateAsAuthority();
       return;
     }
 
@@ -177,6 +178,23 @@ void FirstPersonPlayer::Update()
 void FirstPersonPlayer::OnAuthorityDetermined(bool bIsLocalAuthority)
 {
   m_bIsLocalOwner = bIsLocalAuthority;
+
+  // Remote entities: clients buffer ~2 send intervals for smooth interpolation;
+  // host/server display remote owners with minimal delay so positions match the owner.
+  plSnapshotInterpolationConfig config = m_Interpolator.GetConfig();
+  config.m_fTeleportThreshold = m_fTeleportThreshold;
+
+  if (!bIsLocalAuthority && m_pNetworkModule && (m_pNetworkModule->IsHost() || m_pNetworkModule->IsServer()))
+  {
+    config.m_InterpolationDelay = plTime::MakeFromMilliseconds(30.0);
+  }
+  else if (!bIsLocalAuthority)
+  {
+    config.m_InterpolationDelay = plTime::MakeFromMilliseconds(
+      (m_fSendRate > 0.0f) ? (2000.0 / m_fSendRate) : 100.0);
+  }
+
+  m_Interpolator.SetConfig(config);
 }
 
 void FirstPersonPlayer::ApplyRemotePosition(const plVec3& vPosition)
